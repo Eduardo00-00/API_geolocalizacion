@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aplicación para crear mapas interactivos</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css">
+    <style>
+        #map {
+            height: 100vh; /* Viewport height */
+            width: 100%;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Aplicación (API) con Leaflet y OpenStreetMap</h1><!--Encabezado de nivel 1-->
+
+    <div id="search-container">
+        <input type="text" id="searchBox" placeholder="Buscar ubicación">
+        <button onclick="buscarLugar()">Buscar</button>
+    </div>
+
+    <div id="map"></div><!--Contenedor del mapa-->
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script><!--Conectar a la biblioteca Leaflet-->
+    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+
+    <script>
+        const map = L.map('map').setView([19.4326, -99.1332], 13); // Crea una instancia del mapa con el id 'map'
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map); // Agrega el mapa donde está puesto el div de 'map'
+
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition((position) => {
+                const usuario = [position.coords.latitude, position.coords.longitude];
+                map.setView(usuario, 14);
+
+                const usuariomarcador = L.marker(usuario).addTo(map)
+                    .bindPopup('Aquí te encuentras').openPopup();
+
+                marcadores.push(usuariomarcador);
+            }, () => {
+                alert('No se pudo obtener tu ubicación');
+            });
+        } else {
+            alert('Geolocalización no soportada por este navegador');
+        }
+
+        let marcadores = [];
+        let ruta = null;
+
+        // Agregar evento de clic al mapa
+        map.on('click', (e) => {
+            // Crear marcador en la posición del clic
+            const marcador = L.marker(e.latlng).addTo(map);
+            marcadores.push(marcador); // Agregar marcador al array
+
+            // Crear ruta entre marcadores cuando hay dos
+            if (marcadores.length === 2) {
+                ruta = L.Routing.control({
+                    waypoints: marcadores.map((marcador) => marcador.getLatLng()), // Obtener coordenadas de los marcadores
+                    routeWhileDragging: true // Permitir redibujar la ruta al arrastrar
+                }).addTo(map);
+            } else if (marcadores.length > 2) {
+                alert('Ya has agregado dos marcadores');
+            }
+
+            setTimeout(() => {
+                const nueva_ruta = confirm('¿Deseas generar una nueva ruta?');
+                if (nueva_ruta) {
+                    resetMap();
+                }
+            }, 1000);
+        });
+
+        function resetMap() {
+            marcadores.forEach(marker => map.removeLayer(marker));
+            marcadores = [];
+            if (ruta) {
+                map.removeControl(ruta);
+                ruta = null;
+            }
+        }
+
+        function buscarLugar() {
+            const searchBox = document.getElementById('searchBox');
+            const query = searchBox.value.trim();
+
+            if (query !== '') {
+                fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data && data.length > 0) {
+                            const { lat, lon, display_name } = data[0];
+                            const lugar = [lat, lon];
+                            map.setView(lugar, 14);
+                            const marcador = L.marker(lugar).addTo(map)
+                                .bindPopup(display_name).openPopup();
+                            marcadores.push(marcador);
+                        } else {
+                            alert('No se encontraron resultados');
+                        }
+                    })
+                    .catch(error => {
+                        alert('Error al buscar lugar');
+                        console.error(error);
+                    });
+            }
+        }
+
+        // Eliminar código comentado innecesario para evitar confusión
+    </script>
+</body>
+
+</html>
